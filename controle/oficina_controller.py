@@ -1,4 +1,5 @@
 # controle/oficina_controller.py
+from .excecoes import MotoNaoEncontradaError
 from typing import List, Optional
 
 from modelo.moto import Moto
@@ -47,6 +48,19 @@ class OficinaController:
             if m.placa == placa:
                 return m
         return None
+
+
+    def buscar_moto_por_placa(self, placa: str) -> Moto:
+        """
+        Busca moto pela placa.
+        - Se encontrar, retorna a Moto.
+        - Se NÃO encontrar, lança MotoNaoEncontradaError.
+        """
+        moto = self.get_moto_por_placa(placa)
+        if moto is None:
+            # aqui entra nossa exceção personalizada
+            raise MotoNaoEncontradaError(placa)
+        return moto
 
     def listar_motos(self) -> List[Moto]:
         """

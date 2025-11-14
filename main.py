@@ -1,10 +1,13 @@
 from datetime import date
 
 from modelo.moto import Moto
+from modelo.categoria_moto import CategoriaMoto
 from modelo.checklist_item import ChecklistItem, StatusItem
 from modelo.checklist import Checklist
 from controle.oficina_controller import OficinaController
 from analytics.oficina_analytics import OficinaAnalytics
+from controle.excecoes import MotoNaoEncontradaError  # <-- ADICIONE ESTA LINHA
+
 
 
 def popular_dados_exemplo(controller: OficinaController) -> None:
@@ -12,8 +15,16 @@ def popular_dados_exemplo(controller: OficinaController) -> None:
     Cria alguns checklists de exemplo para podermos testar o sistema.
     Em produção, isso poderia ser substituído por dados reais.
     """
-    moto = Moto("QLE-5084", "Yamaha", "MT-07", 2022, 689)
+    moto = Moto(
+        "QLE-5084",
+        "Yamaha",
+        "MT-07",
+        2022,
+        689,
+        CategoriaMoto.NAKED,
+    )
     controller.cadastrar_moto(moto)
+    
 
     # Revisão 1
     checklist1 = Checklist(moto=moto, km_atual=15000, data_revisao=date(2025, 1, 10))
@@ -77,7 +88,6 @@ def mostrar_menu() -> None:
     print("5 - Ver resumo de custos (Analytics)")
     print("0 - Sair")
 
-
 def listar_motos(controller: OficinaController) -> None:
     motos = controller.listar_motos()
     if not motos:
@@ -86,18 +96,23 @@ def listar_motos(controller: OficinaController) -> None:
 
     print("\n=== Motos cadastradas ===")
     for m in motos:
-        print(f"- {m.modelo} ({m.placa}) - Ano {m.ano}")
-
+        # POLIMORFISMO: usamos o método da classe filha (Moto) definido
+        # a partir da interface da classe base (Veiculo)
+        print(m.exibir_info())
 
 def buscar_por_placa(controller: OficinaController) -> None:
     placa = input("Digite a placa da moto: ").strip()
-    moto = controller.get_moto_por_placa(placa)
 
-    if moto is None:
-        print(f"Nenhuma moto encontrada com a placa: {placa}")
+    try:
+        # Agora usamos o método que LANÇA exceção se não encontrar
+        moto = controller.buscar_moto_por_placa(placa)
+    except MotoNaoEncontradaError as e:
+        print(f"\n[ERRO] {e}")
         return
 
-    print(f"\nMoto encontrada: {moto.modelo} ({moto.placa}) - Ano {moto.ano}")
+    print("\nMoto encontrada:")
+    print(moto.exibir_info())
+
 
 
 def buscar_por_modelo(controller: OficinaController) -> None:
