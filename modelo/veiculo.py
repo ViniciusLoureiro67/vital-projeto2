@@ -35,7 +35,7 @@ class Veiculo(ABC):
     def _set_marca(self, marca: str) -> None:
         if not marca or not marca.strip():
             raise ValueError("Marca é obrigatória.")
-        self._marca = marca.strip()
+        self._marca = marca.strip().upper()
 
     @property
     def modelo(self) -> str:
@@ -44,7 +44,7 @@ class Veiculo(ABC):
     def _set_modelo(self, modelo: str) -> None:
         if not modelo or not modelo.strip():
             raise ValueError("Modelo é obrigatório.")
-        self._modelo = modelo.strip()
+        self._modelo = modelo.strip().upper()
 
     @property
     def ano(self) -> int:
