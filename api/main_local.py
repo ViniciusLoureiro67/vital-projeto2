@@ -214,42 +214,52 @@ def listar_checklists(
     ordenar_por: Optional[str] = None
 ):
     """Lista checklists com filtros opcionais, paginação e ordenação."""
-    if placa:
-        checklists = controller.get_checklists_por_moto(placa)
-    elif data_inicio or data_fim:
-        checklists = controller.buscar_checklists_por_periodo(data_inicio, data_fim)
-    elif status_item:
-        status_enum = None
-        for s in StatusItem:
-            if s.value == status_item.lower() or s.name == status_item.upper():
-                status_enum = s
-                break
-        if status_enum is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Status inválido: {status_item}"
-            )
-        checklists = controller.buscar_checklists_por_status_item(status_enum)
-    else:
-        checklists = controller.listar_checklists(finalizado=finalizado, pago=pago)
-    
-    # Ordenação
-    if ordenar_por:
-        ordenar_por = ordenar_por.lower()
-        if ordenar_por == "data":
-            checklists = sorted(checklists, key=lambda c: c.data_revisao, reverse=True)
-        elif ordenar_por == "km":
-            checklists = sorted(checklists, key=lambda c: c.km_atual, reverse=True)
-        elif ordenar_por == "custo":
-            checklists = sorted(checklists, key=lambda c: c.custo_total_estimado(), reverse=True)
-    
-    # Paginação
-    if limit:
-        checklists = checklists[skip:skip + limit]
-    else:
-        checklists = checklists[skip:]
-    
-    return [ch.to_dict() for ch in checklists]
+    try:
+        if placa:
+            checklists = controller.get_checklists_por_moto(placa)
+        elif data_inicio or data_fim:
+            checklists = controller.buscar_checklists_por_periodo(data_inicio, data_fim)
+        elif status_item:
+            status_enum = None
+            for s in StatusItem:
+                if s.value == status_item.lower() or s.name == status_item.upper():
+                    status_enum = s
+                    break
+            if status_enum is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Status inválido: {status_item}"
+                )
+            checklists = controller.buscar_checklists_por_status_item(status_enum)
+        else:
+            checklists = controller.listar_checklists(finalizado=finalizado, pago=pago)
+        
+        # Ordenação
+        if ordenar_por:
+            ordenar_por = ordenar_por.lower()
+            if ordenar_por == "data":
+                checklists = sorted(checklists, key=lambda c: c.data_revisao, reverse=True)
+            elif ordenar_por == "km":
+                checklists = sorted(checklists, key=lambda c: c.km_atual, reverse=True)
+            elif ordenar_por == "custo":
+                checklists = sorted(checklists, key=lambda c: c.custo_total_estimado(), reverse=True)
+        
+        # Paginação
+        if limit:
+            checklists = checklists[skip:skip + limit]
+        else:
+            checklists = checklists[skip:]
+        
+        # Serializa para dict
+        return [ch.to_dict() for ch in checklists]
+    except Exception as e:
+        import traceback
+        print(f"[ERRO] Erro ao listar checklists: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro interno ao listar checklists: {str(e)}"
+        )
 
 
 @app.get("/api/checklists/moto/{placa}", response_model=List[ChecklistResponse], tags=["Checklists"])

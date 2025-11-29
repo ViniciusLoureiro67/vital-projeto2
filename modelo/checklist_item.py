@@ -6,6 +6,7 @@ class StatusItem(Enum):
     CONCLUIDO = "concluido"
     PENDENTE = "pendente"
     NECESSITA_TROCA = "necessita_troca"
+    IGNORADO = "ignorado"
 
 
 class ChecklistItem:
@@ -51,5 +52,15 @@ class ChecklistItem:
             raise ValueError("Custo não pode ser negativo.")
         self._custo_estimado = valor
 
+    def to_dict(self) -> dict:
+        """Converte o item para dicionário (serialização JSON)."""
+        return {
+            "nome": self.nome,
+            "categoria": self.categoria,
+            "status": self.status.value,
+            "status_enum": self.status.name,
+            "custo_estimado": self.custo_estimado
+        }
+    
     def __repr__(self) -> str:
         return f"ChecklistItem(nome={self.nome}, categoria={self.categoria}, status={self.status.name}, custo={self.custo_estimado})"

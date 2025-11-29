@@ -1,9 +1,11 @@
 # controle/oficina_controller.py
 from .excecoes import MotoNaoEncontradaError
 from typing import List, Optional
+from datetime import date
 
 from modelo.moto import Moto
 from modelo.checklist import Checklist
+from modelo.checklist_item import ChecklistItem, StatusItem
 
 
 class OficinaController:
@@ -84,9 +86,10 @@ class OficinaController:
     # -------------------------
     # CHECKLISTS
     # -------------------------
-    def registrar_checklist(self, checklist: Checklist) -> None:
+    def registrar_checklist(self, checklist: Checklist) -> int:
         """
         Registra um checklist de revisão.
+        Retorna o ID do checklist (índice na lista + 1).
         """
         if not isinstance(checklist, Checklist):
             raise ValueError("Checklist inválido.")
@@ -100,11 +103,16 @@ class OficinaController:
             )
             self.cadastrar_moto(checklist.moto)
 
+        # Atribui um ID se não tiver
+        if checklist.id is None:
+            checklist._id = len(self._checklists) + 1
+        
         self._checklists.append(checklist)
         print(
             f"LOG: Checklist registrado para moto {checklist.moto.placa} "
             f"na data {checklist.data_formatada}."
         )
+        return checklist.id
 
     def get_checklists_por_moto(self, placa: str) -> List[Checklist]:
         """
@@ -116,8 +124,154 @@ class OficinaController:
         placa = placa.strip().upper()
         return [c for c in self._checklists if c.moto.placa == placa]
 
-    def listar_checklists(self) -> List[Checklist]:
+    def listar_checklists(self, finalizado: Optional[bool] = None, pago: Optional[bool] = None) -> List[Checklist]:
         """
-        Retorna todos os checklists registrados.
+        Retorna todos os checklists registrados, opcionalmente filtrados por status.
+        
+        Args:
+            finalizado: Se True, retorna apenas finalizados. Se False, apenas não finalizados. Se None, todos.
+            pago: Se True, retorna apenas pagos. Se False, apenas não pagos. Se None, todos.
         """
-        return list(self._checklists)
+        checklists = list(self._checklists)
+        
+        # Aplica filtros se fornecidos
+        if finalizado is not None:
+            checklists = [c for c in checklists if c.finalizado == finalizado]
+        
+        if pago is not None:
+            checklists = [c for c in checklists if c.pago == pago]
+        
+        return checklists
+    
+    def buscar_checklist_por_id(self, checklist_id: int) -> Optional[Checklist]:
+        """Busca um checklist pelo ID único."""
+        for checklist in self._checklists:
+            if checklist.id == checklist_id:
+                return checklist
+        return None
+    
+    def deletar_checklist_por_id(self, checklist_id: int) -> bool:
+        """Remove um checklist pelo ID."""
+        for i, checklist in enumerate(self._checklists):
+            if checklist.id == checklist_id:
+                self._checklists.pop(i)
+                return True
+        return False
+    
+    def buscar_checklists_por_periodo(
+        self,
+        data_inicio: Optional[date] = None,
+        data_fim: Optional[date] = None
+    ) -> List[Checklist]:
+        """Busca checklists por período de datas."""
+        checklists = list(self._checklists)
+        
+        if data_inicio:
+            checklists = [c for c in checklists if c.data_revisao >= data_inicio]
+        
+        if data_fim:
+            checklists = [c for c in checklists if c.data_revisao <= data_fim]
+        
+        return checklists
+    
+    def buscar_checklists_por_status_item(self, status: StatusItem) -> List[Checklist]:
+        """Busca checklists que possuem pelo menos um item com o status especificado."""
+        resultado = []
+        for checklist in self._checklists:
+            for item in checklist.itens:
+                if item.status == status:
+                    resultado.append(checklist)
+                    break
+        return resultado
+    
+    def atualizar_item_checklist(
+        self,
+        checklist_id: int,
+        item_index: int,
+        status: Optional[StatusItem] = None,
+        custo_estimado: Optional[float] = None
+    ) -> bool:
+        """
+        Atualiza um item específico de um checklist.
+        Retorna True se atualizado com sucesso.
+        """
+        checklist = self.buscar_checklist_por_id(checklist_id)
+        if not checklist:
+            return False
+        
+        if item_index < 0 or item_index >= len(checklist._itens):
+            return False
+        
+        item = checklist._itens[item_index]
+        
+        if status is not None:
+            item.status = status
+        
+        if custo_estimado is not None:
+            item.custo_estimado = custo_estimado
+        
+        return True
+    
+    def adicionar_item_checklist(
+        self,
+        checklist_id: int,
+        nome: str,
+        categoria: str,
+        status: StatusItem,
+        custo_estimado: float = 0.0
+    ) -> bool:
+        """
+        Adiciona um novo item customizado ao checklist.
+        Retorna True se adicionado com sucesso.
+        """
+        checklist = self.buscar_checklist_por_id(checklist_id)
+        if not checklist:
+            return False
+        
+        item = ChecklistItem(nome=nome, categoria=categoria, status=status, custo_estimado=custo_estimado)
+        checklist.adicionar_item(item)
+        return True
+    
+    def atualizar_status_checklist(
+        self,
+        checklist_id: int,
+        finalizado: Optional[bool] = None,
+        pago: Optional[bool] = None,
+        custo_real: Optional[float] = None
+    ) -> Optional[Checklist]:
+        """
+        Atualiza o status de finalização, pagamento e/ou custo real de um checklist.
+        """
+        checklist = self.buscar_checklist_por_id(checklist_id)
+        if not checklist:
+            return None
+        
+        if finalizado is not None:
+            checklist.finalizado = finalizado
+        
+        if pago is not None:
+            checklist.pago = pago
+        
+        if custo_real is not None:
+            if custo_real < 0:
+                raise ValueError("Custo real não pode ser negativo.")
+            checklist.custo_real = custo_real
+        
+        return checklist
+    
+    def deletar_moto(self, placa: str) -> bool:
+        """
+        Remove uma moto do sistema.
+        Retorna True se foi removida, False se não foi encontrada.
+        """
+        moto = self.get_moto_por_placa(placa)
+        if moto is None:
+            return False
+        
+        # Remove checklists relacionados
+        self._checklists = [c for c in self._checklists if c.moto.placa != placa]
+        
+        # Remove a moto
+        self._motos = [m for m in self._motos if m.placa != placa]
+        
+        return True

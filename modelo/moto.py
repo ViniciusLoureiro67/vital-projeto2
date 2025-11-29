@@ -41,3 +41,15 @@ class Moto(Veiculo):
             f"Marca: {self.marca} | Modelo: {self.modelo} | "
             f"Ano: {self.ano} | Cilindradas: {self.cilindradas}cc"
         )
+    
+    def to_dict(self) -> dict:
+        """Converte a moto para dicionário (serialização JSON)."""
+        return {
+            "placa": self.placa,
+            "marca": self.marca,
+            "modelo": self.modelo,
+            "ano": self.ano,
+            "cilindradas": self.cilindradas,
+            "categoria": self.categoria.value,
+            "categoria_enum": self.categoria.name
+        }
