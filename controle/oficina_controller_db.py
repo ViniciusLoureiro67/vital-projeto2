@@ -4,7 +4,7 @@ Controller que usa banco de dados PostgreSQL.
 Mantém a mesma interface do OficinaController para compatibilidade.
 """
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from datetime import date
 
 from .excecoes import MotoNaoEncontradaError
@@ -14,6 +14,9 @@ from modelo.checklist import Checklist
 from modelo.checklist_item import StatusItem
 from db.repository import MotoRepository, ChecklistRepository
 from db.converter import moto_db_para_dominio, checklist_db_para_dominio
+
+if TYPE_CHECKING:
+    from modelo.categoria_moto import CategoriaMoto
 
 
 class OficinaControllerDB:
@@ -91,17 +94,13 @@ class OficinaControllerDB:
         motos_db = MotoRepository.buscar_por_modelo(self._db, termo_modelo)
         return [moto_db_para_dominio(m) for m in motos_db]
     
-    def atualizar_moto(self, placa: str, **kwargs) -> Optional[Moto]:
+    def _preparar_dados_atualizacao(self, kwargs: dict) -> dict:
         """
-        Atualiza os dados de uma moto existente.
-        Retorna a moto atualizada ou None se não encontrada.
+        Prepara os dados de atualização a partir dos kwargs.
+        Extrai a lógica de preparação para reduzir complexidade.
         """
-        moto_db = MotoRepository.buscar_por_placa(self._db, placa)
-        if moto_db is None:
-            return None
-        
-        # Prepara dados para atualização
         dados_atualizacao = {}
+        
         if 'marca' in kwargs and kwargs['marca'] is not None:
             dados_atualizacao['marca'] = kwargs['marca'].strip().upper()
         if 'modelo' in kwargs and kwargs['modelo'] is not None:
@@ -111,17 +110,32 @@ class OficinaControllerDB:
         if 'cilindradas' in kwargs and kwargs['cilindradas'] is not None:
             dados_atualizacao['cilindradas'] = kwargs['cilindradas']
         if 'categoria' in kwargs and kwargs['categoria'] is not None:
-            from modelo.categoria_moto import CategoriaMoto
-            categoria = kwargs['categoria']
-            if isinstance(categoria, str):
-                for cat in CategoriaMoto:
-                    if cat.value == categoria or cat.name == categoria:
-                        dados_atualizacao['categoria'] = cat
-                        break
-            else:
-                dados_atualizacao['categoria'] = categoria
+            dados_atualizacao['categoria'] = self._processar_categoria(kwargs['categoria'])
         
-        # Atualiza no banco
+        return dados_atualizacao
+    
+    def _processar_categoria(self, categoria):
+        """
+        Processa e converte categoria (string ou enum) para CategoriaMoto.
+        """
+        from modelo.categoria_moto import CategoriaMoto
+        
+        if isinstance(categoria, str):
+            for cat in CategoriaMoto:
+                if cat.value == categoria or cat.name == categoria:
+                    return cat
+        return categoria
+    
+    def atualizar_moto(self, placa: str, **kwargs) -> Optional[Moto]:
+        """
+        Atualiza os dados de uma moto existente.
+        Retorna a moto atualizada ou None se não encontrada.
+        """
+        moto_db = MotoRepository.buscar_por_placa(self._db, placa)
+        if moto_db is None:
+            return None
+        
+        dados_atualizacao = self._preparar_dados_atualizacao(kwargs)
         MotoRepository.atualizar(self._db, moto_db, **dados_atualizacao)
         return moto_db_para_dominio(moto_db)
     
